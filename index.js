@@ -23,10 +23,8 @@ module.exports = function(kbox) {
 
   // List of viable frameworks
   var frameworks = [
-    'backdrop',
-    'drupal7',
-    'drupal8',
-    'wordpress'
+    'magento1',
+    'magento2'
   ];
 
   // Load our events and create modules

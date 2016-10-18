@@ -1,7 +1,7 @@
 #
-# Kalabox Drupal compose file
+# Kalabox Magento compose file
 #
-# This contains the core service definitions to run Drupal on Kalabox. This
+# This contains the core service definitions to run Magento on Kalabox. This
 # is a docker-compose file so please check out the compose file documentation
 # over at https://docs.docker.com/compose/compose-file/.
 #
@@ -25,20 +25,19 @@
 #
 
 #
-# This defines a data container to share common drupal app assets such as:
+# This defines a data container to share common app assets such as:
 #
-#   1. /media - Static assets like images and compiled css, Your files/wp-uploads
-#               directory is symlinked here
+#   1. /media - Magento's media dir is here
 #
-#   3. /var/lib/mysql - MariaDB databases to preserve data on rebuilds
+#   2. /var/lib/mysql - MySQL databases to preserve data on rebuilds
 #
-#   4. /var/www/html - Your applications codebase, also where you shared code lives
+#   3. /var/www/html - Your applications codebase, also where you shared code lives
 #
 data:
 
   # Comment this and uncomment 'build' below if you want to edit your
   # local dockerfile and build from there. This is useful for development
-  image: busybox
+  image: tianon/true
 
   # Uncomment this and comment 'image' above if you want to edit your
   # local dockerfile and build from there. This is useful for development
@@ -46,15 +45,18 @@ data:
   # build: ./dockerfiles/data
 
   volumes:
+    - /srv/www
+    - $KALABOX_APP_ROOT_BIND/files:/srv/www/$KALABOX_APP_PHP_CONFIG_FILEMOUNT
+
+dbdata:
+  image: tianon/true
+  volumes:
     - /var/lib/mysql
-    - /var/www/html
-    - $KALABOX_APP_ROOT_BIND/files:/var/www/html/$KALABOX_APP_PHP_CONFIG_FILEMOUNT
 
 #
-# This defines a basic Drupal appserver.
+# This defines a Magento appserver on nginx and php-fpm.
 #
-# The $KALABOX_APP_DRUPAL_CONFIG_VERSION var should contain the
-# appropriate major version of drupal
+# The $KALABOX_APP_PHP_CONFIG_VERSION var should contain the Mage version
 #
 #
 appserver:
@@ -69,8 +71,8 @@ appserver:
   # build: ./dockerfiles/${KALABOX_APP_PHP_CONFIG_FRAMEWORK}${KALABOX_APP_PHP_CONFIG_VERSION}
 
   hostname: $KALABOX_APP_CONFIG_NAME.$KALABOX_APP_CONFIG_DOMAIN
-  volumes:
-    - $KALABOX_APP_ROOT_BIND/config/apache/apache2-foreground:/usr/local/bin/apache2-foreground
+  #volumes:
+  #  - $KALABOX_APP_ROOT_BIND/config/apache/apache2-foreground:/usr/local/bin/apache2-foreground
   environment:
     FRAMEWORK: $KALABOX_APP_PHP_CONFIG_FRAMEWORK
     KALABOX_UID: $KALABOX_ENGINE_ID
@@ -78,10 +80,18 @@ appserver:
   volumes_from:
     - data
   links:
-    - db:database
-    - db:mysql
+    - db
+    - phpfpm
   ports:
-    - "80"
+    - "8000:80"
+
+
+phpfpm:
+  image: mageinferno/magento2-php:7.0.8-fpm-3
+  links:
+    - db
+  volumes_from:
+    - data
 
 #
 # This defines a basic database server.
@@ -90,7 +100,7 @@ db:
 
   # Comment this and uncomment 'build' below if you want to edit your
   # local dockerfile and build from there. This is useful for development
-  image: mysql
+  image: mysql:5.6
 
   # Uncomment this and comment 'image' above if you want to edit your
   # local dockerfile and build from there. This is useful for development
@@ -98,7 +108,7 @@ db:
   # build: ./dockerfiles/db
 
   volumes_from:
-    - data
+    - dbdata
   ports:
     - "3306"
   environment:
@@ -106,3 +116,26 @@ db:
     MYSQL_PASSWORD: $KALABOX_APP_PHP_CONFIG_FRAMEWORK
     MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
     MYSQL_DATABASE: $KALABOX_APP_PHP_CONFIG_FRAMEWORK
+
+
+setup:
+  image: mageinferno/magento2-php:7.0.8-fpm-3
+  command: /usr/local/bin/mage-setup
+  links:
+    - db
+  volumes_from:
+    - data
+  environment:
+    - M2SETUP_DB_HOST=db
+    - M2SETUP_DB_NAME=magento2
+    - M2SETUP_DB_USER=magento2
+    - M2SETUP_DB_PASSWORD=magento2
+    - M2SETUP_BASE_URL=http://$KALABOX_APP_CONFIG_NAME.$KALABOX_APP_CONFIG_DOMAIN/
+    - M2SETUP_ADMIN_FIRSTNAME=Admin
+    - M2SETUP_ADMIN_LASTNAME=User
+    - M2SETUP_ADMIN_EMAIL=dummy@gmail.com
+    - M2SETUP_ADMIN_USER=magento2
+    - M2SETUP_ADMIN_PASSWORD=magento2
+    - M2SETUP_VERSION=$KALABOX_APP_PHP_CONFIG_VERSION
+    - M2SETUP_USE_SAMPLE_DATA=false
+    - M2SETUP_USE_ARCHIVE=true

@@ -10,7 +10,7 @@
 # This is the name you choose during `kbox create drupal7/8`. Changing the
 # name or the type is generally dark and full of peril.
 #
-name: php
+name: magento
 type: php
 
 #
@@ -39,7 +39,7 @@ type: php
 #     - my-wicked-awesome-plugin
 #
 plugins:
-  - kalabox-plugin-php
+  - kalabox-plugin-magento
 
 
 #
@@ -88,7 +88,7 @@ pluginconfig:
   #     Generally you will not want to share massive amounts of static assets.
   #
   sharing:
-    share: data:/var/www/html
+    share: data:/srv/www/
 
   #
   # services plugin config.
@@ -110,10 +110,12 @@ pluginconfig:
     appserver:
       - port: 80/tcp
         default: true
+      - port: 443/tcp
+        secure: true
 
   #
-  # Php plugin config.
+  # Magento plugin config.
   #
   php:
-    framework: 'drupal'
-    version: '8'
+    framework: 'magento2' # either 'magento' or 'magento2'
+    version: '2.1.0' # the 4-digit Magento release
